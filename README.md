@@ -1,1 +1,412 @@
-# Gift
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crash TON - Ultimate Loot</title>
+    <style>
+        :root {
+            --bg: #0d1012; 
+            --card: #1c2127; 
+            --blue: #0098ea;
+            --green: #28a745; 
+            --red: #e54d42; 
+            --text-sec: #808a9d;
+        }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: white; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* HEADER */
+        .header { display: flex; justify-content: space-between; padding: 12px 16px; align-items: center; border-bottom: 1px solid #2a2e35; z-index: 20; background: var(--bg); }
+        .online-badge { background: #23282e; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; color: var(--green); display: flex; gap: 6px; align-items: center; }
+        .balance-box { background: var(--card); padding: 5px 5px 5px 15px; border-radius: 25px; display: flex; align-items: center; gap: 10px; border: 1px solid #2a2e35; }
+        .balance-val { font-weight: 800; font-size: 15px; }
+        .add-btn { width: 28px; height: 28px; background: var(--blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; }
+
+        /* GAME AREA */
+        .game-area { flex: 1; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 100%, #1b2026 0%, #0d1012 70%); }
+        #chart { width: 100%; height: 100%; display: block; }
+        
+        /* ЦЕНТРАЛЬНАЯ ИНФА */
+        .center-hud { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 10; }
+        .multiplier { font-size: 72px; font-weight: 900; letter-spacing: -2px; text-shadow: 0 10px 30px rgba(0,0,0,0.5); font-variant-numeric: tabular-nums; line-height: 1; }
+        .multiplier.crashed { color: var(--red); }
+        .status-text { color: var(--text-sec); font-size: 13px; font-weight: 700; text-transform: uppercase; margin-top: 10px; letter-spacing: 1px; }
+
+        /* РАКЕТА (КАРТИНКА) */
+        #rocket-obj {
+            position: absolute; width: 60px; height: 60px; 
+            transform: translate(-50%, -50%); 
+            z-index: 20; pointer-events: none;
+            transition: transform 0.1s linear;
+            filter: drop-shadow(0 0 15px rgba(0, 152, 234, 0.4));
+        }
+
+        /* ВЫПАДАЮЩИЕ ПРЕДМЕТЫ */
+        .loot-item {
+            position: absolute; display: flex; flex-direction: column; align-items: center;
+            animation: appear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 15; pointer-events: none;
+        }
+        .loot-img { width: 45px; height: 45px; object-fit: contain; filter: drop-shadow(0 0 10px var(--blue)); }
+        .loot-price { 
+            background: rgba(0,0,0,0.85); padding: 3px 8px; border-radius: 6px; 
+            font-size: 11px; color: var(--green); font-weight: 800; 
+            border: 1px solid var(--green); margin-top: -5px; z-index: 16;
+        }
+        @keyframes appear { from { transform: scale(0) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+
+        /* УПРАВЛЕНИЕ */
+        .controls { padding: 16px; background: var(--bg); border-top: 1px solid #2a2e35; }
+        .bet-btn { 
+            width: 100%; height: 56px; border: none; border-radius: 16px; 
+            background: var(--blue); color: white; font-size: 18px; font-weight: 800; 
+            cursor: pointer; box-shadow: 0 4px 0 #0069d9; transition: transform 0.1s; display: flex; justify-content: center; align-items: center; gap: 10px;
+        }
+        .bet-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #0069d9; }
+        .bet-btn.cashout { background: var(--green); box-shadow: 0 4px 0 #1e7e34; }
+        .bet-btn:disabled { background: var(--card); color: var(--text-sec); box-shadow: none; opacity: 0.7; }
+
+        /* ПРОФИЛЬ */
+        .profile-overlay {
+            position: fixed; inset: 0; background: var(--bg); z-index: 100;
+            display: none; flex-direction: column; padding: 20px; overflow-y: auto;
+        }
+        .p-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+        .p-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(45deg, #0098ea, #5b46e9); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border: 2px solid white; }
+        .total-box { background: var(--card); padding: 15px; border-radius: 16px; border: 1px solid #2a2e35; margin-bottom: 20px; }
+        
+        .inv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .inv-slot { 
+            background: #15191e; border-radius: 12px; padding: 10px; 
+            display: flex; flex-direction: column; align-items: center; 
+            border: 1px solid #2a2e35; text-align: center;
+        }
+        .inv-slot img { width: 40px; height: 40px; margin-bottom: 8px; object-fit: contain; }
+        .inv-name { font-size: 10px; color: #ccc; margin-bottom: 2px; }
+        .inv-val { font-size: 11px; color: var(--green); font-weight: 800; }
+
+        /* НАВИГАЦИЯ */
+        .nav-bar { display: flex; justify-content: space-around; padding: 12px 0 25px; background: #121418; border-top: 1px solid #2a2e35; }
+        .nav-item { text-align: center; color: var(--text-sec); font-size: 10px; cursor: pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-item.active { color: var(--blue); }
+        .nav-icon { font-size: 20px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="online-badge"><span>●</span> 2,401</div>
+        <div class="balance-box">
+            <img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" width="18">
+            <span class="balance-val" id="balance">100.00</span>
+            <div class="add-btn" onclick="addMoney()">+</div>
+        </div>
+    </div>
+
+    <div id="game-page" class="game-area">
+        <canvas id="chart"></canvas>
+        
+        <img id="rocket-obj" src="https://cdn-icons-png.flaticon.com/512/3212/3212567.png" alt="Rocket">
+
+        <div class="center-hud">
+            <div class="multiplier" id="mult-disp">1.00x</div>
+            <div class="status-text" id="status-disp">Загрузка...</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="bet-btn" id="action-btn">СДЕЛАТЬ СТАВКУ (10.00)</button>
+    </div>
+
+    <div id="profile-page" class="profile-overlay">
+        <div class="p-header">
+            <div class="p-avatar">Y</div>
+            <div>
+                <h2 style="margin:0; font-size:22px;">You</h2>
+                <div style="font-size:13px; color:var(--text-sec);">TOP Player</div>
+            </div>
+        </div>
+
+        <div class="total-box">
+            <div style="font-size:12px; color:var(--text-sec); margin-bottom:5px;">Общая стоимость инвентаря</div>
+            <div style="font-size:28px; font-weight:900; color:white;" id="total-inv-val">0 TON</div>
+        </div>
+
+        <h3 style="margin-bottom:15px;">Мой Инвентарь</h3>
+        <div class="inv-grid" id="inv-container">
+            </div>
+
+        <button class="bet-btn" style="margin-top:auto; background:#2a2e35; color:#fff; box-shadow:none;" onclick="toggleProfile(false)">Вернуться в игру</button>
+    </div>
+
+    <div class="nav-bar">
+        <div class="nav-item" onclick="alert('Топ игроков скоро будет!')">
+            <span class="nav-icon">🏆</span> Топ
+        </div>
+        <div class="nav-item active" onclick="toggleProfile(false)">
+            <span class="nav-icon">🚀</span> Краш
+        </div>
+        <div class="nav-item" onclick="toggleProfile(true)">
+            <span class="nav-icon">🎒</span> Профиль
+        </div>
+    </div>
+
+<script>
+    // --- ТОКЕН ИЗ ВАШЕГО СКРИНШОТА ---
+    const BOT_TOKEN = "8577027584:AAHA35xAEAiuvwXR7No25Dj6QIenix3Z4_8"; //
+
+    // --- НАСТРОЙКИ ---
+    const ITEMS_DB = [
+        { id: 1, name: "Пожарка", price: 275, img: "https://cdn-icons-png.flaticon.com/512/785/785116.png" }, 
+        { id: 2, name: "Золотая", price: 550, img: "https://cdn-icons-png.flaticon.com/512/10692/10692994.png" }, 
+        { id: 3, name: "Турбо",   price: 110, img: "https://cdn-icons-png.flaticon.com/512/3712/3712263.png" }, 
+        { id: 4, name: "Кейс TON", price: 45, img: "https://cdn-icons-png.flaticon.com/512/9422/9422933.png" }, 
+        { id: 5, name: "НЛО",     price: 33,  img: "https://cdn-icons-png.flaticon.com/512/3067/3067399.png" }  
+    ];
+
+    let state = {
+        balance: 100.00,
+        bet: 10.00,
+        isFlying: false,
+        betPlaced: false,
+        mult: 1.00,
+        inventory: [],
+        lootOnScreen: [] 
+    };
+
+    const UI = {
+        bal: document.getElementById('balance'),
+        mult: document.getElementById('mult-disp'),
+        status: document.getElementById('status-disp'),
+        btn: document.getElementById('action-btn'),
+        canvas: document.getElementById('chart'),
+        ctx: document.getElementById('chart').getContext('2d'),
+        rocket: document.getElementById('rocket-obj'),
+        gameArea: document.getElementById('game-page'),
+        invList: document.getElementById('inv-container'),
+        invTotal: document.getElementById('total-inv-val'),
+        profile: document.getElementById('profile-page')
+    };
+
+    function init() {
+        resize();
+        window.addEventListener('resize', resize);
+        UI.btn.onclick = handleBtn;
+        loadData();
+        startCycle();
+    }
+
+    function startCycle() {
+        clearGame();
+        state.isFlying = false;
+        state.mult = 1.00;
+        state.lootOnScreen = [];
+        
+        UI.mult.classList.remove('crashed');
+        UI.mult.style.color = 'white';
+        UI.status.innerText = "ОЖИДАНИЕ СТАВОК...";
+        updateBtn();
+
+        let count = 4;
+        const timer = setInterval(() => {
+            count--;
+            UI.mult.innerText = count > 0 ? count : "GO";
+            if(count <= 0) {
+                clearInterval(timer);
+                launch();
+            }
+        }, 1000);
+    }
+
+    function launch() {
+        state.isFlying = true;
+        let startTime = Date.now();
+        let crashAt = (Math.random() < 0.1) ? 1.0 : (1.02 / (1 - Math.random())).toFixed(2);
+        if(crashAt > 100) crashAt = 100;
+
+        UI.status.innerText = "РАКЕТА В ПУТИ";
+        updateBtn();
+
+        const loop = setInterval(() => {
+            if(!state.isFlying) { clearInterval(loop); return; }
+
+            let elapsed = (Date.now() - startTime) / 1000;
+            state.mult = Math.pow(Math.E, 0.12 * elapsed);
+            
+            UI.mult.innerText = state.mult.toFixed(2) + "x";
+            let pos = drawGraph(elapsed);
+            moveRocket(pos.x, pos.y);
+
+            if(Math.random() < 0.03) {
+                spawnLoot(pos.x, pos.y);
+            }
+
+            if(state.mult >= crashAt) {
+                clearInterval(loop);
+                crash(crashAt);
+            }
+        }, 30);
+    }
+
+    function spawnLoot(x, y) {
+        const item = ITEMS_DB[Math.floor(Math.random() * ITEMS_DB.length)];
+        const el = document.createElement('div');
+        el.className = 'loot-item';
+        el.style.left = x + 'px';
+        el.style.top = (y + 40) + 'px'; 
+        el.innerHTML = `
+            <img src="${item.img}" class="loot-img">
+            <div class="loot-price">${item.price} TON</div>
+        `;
+        UI.gameArea.appendChild(el);
+        state.lootOnScreen.push({ data: item, el: el });
+    }
+
+    function crash(val) {
+        state.isFlying = false;
+        UI.mult.innerText = val + "x";
+        UI.mult.classList.add('crashed');
+        UI.status.innerText = "CRASHED";
+        state.betPlaced = false;
+        updateBtn();
+        setTimeout(startCycle, 3000);
+    }
+
+    function handleBtn() {
+        if(!state.isFlying && !state.betPlaced) {
+            if(state.balance >= state.bet) {
+                state.balance -= state.bet;
+                state.betPlaced = true;
+                updateBalance();
+                updateBtn();
+            } else alert("Мало средств!");
+        } 
+        else if(state.isFlying && state.betPlaced) {
+            const win = state.bet * state.mult;
+            state.balance += win;
+            
+            if(state.lootOnScreen.length > 0) {
+                let collectedNames = [];
+                state.lootOnScreen.forEach(loot => {
+                    state.inventory.push(loot.data);
+                    collectedNames.push(loot.data.name);
+                });
+                alert(`Выигрыш: ${win.toFixed(2)} TON\n+ ПОЙМАНО: ${collectedNames.join(', ')}`);
+                saveData();
+            }
+            
+            state.betPlaced = false;
+            state.lootOnScreen = []; 
+            updateBalance();
+            updateBtn();
+        }
+    }
+
+    function updateBtn() {
+        UI.btn.disabled = false;
+        UI.btn.classList.remove('cashout');
+
+        if(!state.isFlying) {
+            if(state.betPlaced) {
+                UI.btn.innerText = "Ожидание раунда...";
+                UI.btn.disabled = true;
+            } else {
+                UI.btn.innerText = `СДЕЛАТЬ СТАВКУ (${state.bet.toFixed(2)})`;
+            }
+        } else {
+            if(state.betPlaced) {
+                let currentWin = (state.bet * state.mult).toFixed(2);
+                UI.btn.innerText = `ЗАБРАТЬ ${currentWin}`;
+                UI.btn.classList.add('cashout');
+            } else {
+                UI.btn.innerText = "Игра идет...";
+                UI.btn.disabled = true;
+            }
+        }
+    }
+
+    function drawGraph(t) {
+        const w = UI.canvas.width;
+        const h = UI.canvas.height;
+        UI.ctx.clearRect(0, 0, w, h);
+
+        UI.ctx.beginPath();
+        UI.ctx.strokeStyle = '#0098ea';
+        UI.ctx.lineWidth = 5;
+        UI.ctx.lineCap = 'round';
+        UI.ctx.moveTo(0, h);
+
+        let x = Math.min(w * 0.85, t * 70); 
+        let y = h - Math.min(h * 0.85, Math.pow(t, 1.6) * 12);
+        
+        UI.ctx.quadraticCurveTo(w * 0.2, h, x, y);
+        UI.ctx.stroke();
+
+        const grad = UI.ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, "rgba(0, 152, 234, 0.3)");
+        grad.addColorStop(1, "rgba(0, 152, 234, 0)");
+        UI.ctx.lineTo(x, h);
+        UI.ctx.fillStyle = grad;
+        UI.ctx.fill();
+
+        return {x, y};
+    }
+
+    function moveRocket(x, y) {
+        UI.rocket.style.left = x + 'px';
+        UI.rocket.style.top = y + 'px';
+        let rot = -45 + (y < UI.canvas.height/2 ? 10 : 0);
+        UI.rocket.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+    }
+
+    function clearGame() {
+        document.querySelectorAll('.loot-item').forEach(el => el.remove());
+        UI.rocket.style.left = '-100px';
+        drawGraph(0);
+    }
+
+    function toggleProfile(show) {
+        UI.profile.style.display = show ? 'flex' : 'none';
+        if(show) renderInventory();
+    }
+
+    function renderInventory() {
+        UI.invList.innerHTML = "";
+        let total = 0;
+        state.inventory.forEach(item => {
+            total += item.price;
+            const div = document.createElement('div');
+            div.className = 'inv-slot';
+            div.innerHTML = `
+                <img src="${item.img}">
+                <div class="inv-name">${item.name}</div>
+                <div class="inv-val">${item.price} TON</div>
+            `;
+            UI.invList.appendChild(div);
+        });
+        UI.invTotal.innerText = total + " TON";
+    }
+
+    function resize() {
+        UI.canvas.width = UI.gameArea.offsetWidth;
+        UI.canvas.height = UI.gameArea.offsetHeight;
+    }
+    function addMoney() { state.balance += 50; updateBalance(); }
+    function updateBalance() { UI.bal.innerText = state.balance.toFixed(2); saveData(); }
+    
+    function saveData() {
+        localStorage.setItem('crash_v3_bal', state.balance);
+        localStorage.setItem('crash_v3_inv', JSON.stringify(state.inventory));
+    }
+    function loadData() {
+        state.balance = parseFloat(localStorage.getItem('crash_v3_bal')) || 100.00;
+        state.inventory = JSON.parse(localStorage.getItem('crash_v3_inv')) || [];
+        updateBalance();
+    }
+
+    init();
+</script>
+</body>
+</html>
